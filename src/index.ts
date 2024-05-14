@@ -1,7 +1,9 @@
 import { config } from "dotenv";
 import { Bot } from "./bot";
+import { createWebServer } from "./http";
 
 function main() {
+  createWebServer();
   config();
   if (
     process.env.TELEGRAM_TOKEN === undefined ||

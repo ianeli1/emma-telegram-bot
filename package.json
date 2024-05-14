@@ -4,8 +4,9 @@
   "description": "a telegram bot with openai api",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "nodemon dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -24,10 +25,14 @@
   },
   "homepage": "https://github.com/sr-tamim/openai-bot-bd#readme",
   "dependencies": {
-    "dotenv": "^16.3.1",
-    "netlify-lambda": "^2.0.16",
-    "nodemon": "^2.0.22",
-    "openai": "^3.3.0",
-    "telegraf": "^4.12.2"
+    "dotenv": "^16.4.5",
+    "nodemon": "^3.1.0",
+    "openai": "^4.46.1",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^8.2.0",
+    "@types/nodemon": "^1.19.6",
+    "typescript": "^5.4.5"
   }
 }

@@ -84,11 +84,28 @@ export class Bot {
     ctx: NarrowedContext<Context<Update>, Update.MessageUpdate<Message>>
   ) => {
     const { message, text } = ctx;
-    if (message.chat.type !== "private" || !text) {
+
+    if (
+      !message ||
+      !("photo" in message) ||
+      message.chat.type !== "private" ||
+      !text
+    ) {
       //dont reply to groups
       return;
     }
+    if (message.photo && message.photo.length > 0) {
+      // If it has a picture hanle it separately
+      await this.handleImageMessage(ctx);
+      return;
+    }
 
+    if (!text) {
+      // If the message doesn't have any content return nothing
+      return;
+    }
+
+    // Regular messages
     ctx.sendChatAction("typing");
     const chatId = message.chat.id;
     let threadId = this.userThreadMap.get(chatId);
@@ -99,6 +116,7 @@ export class Bot {
       role: "user",
       content: text,
     });
+
     try {
       const newMessage = await this.runAI(threadId);
       const newContent = newMessage.content.reduce((acc, curr) => {
@@ -110,8 +128,49 @@ export class Bot {
       }, "");
       await ctx.reply(newContent);
     } catch (e) {
+      console.log(`An error occurred handling AI response: ${e}`);
+    }
+  };
+
+  //Handling messages with images
+  handleImageMessage = async (
+    ctx: NarrowedContext<Context<Update>, Update.MessageUpdate<Message>>
+  ) => {
+    const imageUrl = await this.getImageFromChat(ctx);
+    if (!imageUrl) {
+      console.log("There's no image url to be found");
+      return;
+    }
+
+    console.log("Image url: ", imageUrl);
+
+    try {
+      const description = await this.describeImage(imageUrl);
+      console.log("Description: ", description);
+      if (!description || !description.choices) {
+        console.log("Invalid response from OpenAI");
+        return;
+      }
+
+      const newContent = this.extractTextFromDescription(description);
+      console.log("New Content: ", newContent);
+      await ctx.reply(newContent);
+    } catch (e) {
       console.log(`An error ocurred handling AI response: ${e}`);
     }
+  };
+
+  extractTextFromDescription = (description: any) => {
+    return description.choices[0].message.content.reduce(
+      (acc: string, curr: any) => {
+        if (curr.type == "text") {
+          return acc.length ? `${acc}\n${curr.text.value}` : curr.text.value;
+        } else {
+          return acc;
+        }
+      },
+      ""
+    );
   };
 
   runAI = async (threadId: string) => {
@@ -169,5 +228,42 @@ export class Bot {
       run_id: runId,
     });
     return messages.data[0];
+  };
+
+  getImageFromChat = async (ctx: Context) => {
+    if (!ctx.message || !("photo" in ctx.message)) return null;
+
+    const messageId = ctx.message.photo ? ctx.message.photo[0].file_id : null;
+
+    if (!messageId) return null;
+
+    const fileInfo = await ctx.telegram.getFile(messageId);
+    if (!fileInfo) return null;
+
+    const imageUrl = `https://api.telegram.org/file/bot${this.botToken}/${fileInfo.file_path}`;
+
+    return imageUrl;
+  };
+
+  describeImage = async (image: string) => {
+    const description = await this.openAi.chat.completions.create({
+      model: "gpt-4-vision-preview",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Hi there Emma, could you please describe this image?",
+            },
+            {
+              type: "image_url",
+              image_url: { url: image },
+            },
+          ],
+        },
+      ],
+    });
+    return description;
   };
 }
